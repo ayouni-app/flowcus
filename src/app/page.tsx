@@ -3,19 +3,28 @@
 /**
  * Flowline — single-file deep work + exercise scheduler.
  *
- * Rules:
+ * RULES
  * 1. Target 6 hours of deep work.
  * 2. Focus blocks prefer 90 minutes.
- * 3. Rest after each focus block is at least 18% of that block.
- * 4. Exercise is continuous, preferably 60 minutes.
- * 5. Exercise minimum is 30 minutes.
- * 6. Exercise must be 5–6 hours before bedtime.
- * 7. Exercise is placed as close as possible to 6 hours before bedtime.
- * 8. 90-minute focus blocks have absolute priority over exercise.
- * 9. If exercise would prevent ANY 90-minute focus block, exercise = 0.
- * 10. Exercise does not count toward the 6-hour focus target.
+ * 3. Smaller focus blocks are allowed when 90m cannot be packed efficiently.
+ * 4. Rest after each focus block is at least 18% of that block.
+ * 5. Exercise is ONE continuous block.
+ * 6. Exercise is 30–60 minutes.
+ * 7. 30 minutes is the minimum exercise allocation.
+ * 8. 60 minutes is preferred only when it does not unnecessarily reduce
+ *    deep-work time.
+ * 9. Exercise should occur 5–6 hours before bedtime.
+ * 10. Exercise is placed as close as possible to 6 hours before bedtime.
+ * 11. Exercise may be scheduled when at least 90 TOTAL minutes of
+ *     deep work remain after exercise.
+ * 12. The 90-minute requirement is NOT a hard requirement for one block.
+ *     For example, 3 × 30m of deep work = 90m total and can coexist
+ *     with 30m exercise.
+ * 13. Deep work is optimized before exercise duration.
+ * 14. Exercise does not count toward the 6-hour deep-work target.
  *
  * Drop this into app/page.tsx.
+ *
  * Requires:
  *   framer-motion
  *   lucide-react
@@ -94,7 +103,9 @@ interface ExerciseBlock {
   actualMinutes: number | null;
 }
 
-type TimelineBlock = FocusBlock | ExerciseBlock;
+type TimelineBlock =
+  | FocusBlock
+  | ExerciseBlock;
 
 interface DayState {
   date: string;
@@ -113,7 +124,8 @@ interface RawRange {
    CONSTANTS
 ============================================================================ */
 
-const STORAGE_KEY = 'flowline_day_state_v2';
+const STORAGE_KEY =
+  'flowline_day_state_v2';
 
 const IDEAL_BLOCK = 90;
 const DAILY_TARGET = 360;
@@ -121,17 +133,10 @@ const DAILY_TARGET = 360;
 const GAP_RATIO = 0.18;
 const MIN_BLOCK = 15;
 
-/* Exercise rules */
+/* Exercise */
 const EXERCISE_MIN = 30;
 const EXERCISE_MAX = 60;
 
-/*
- * Exercise should occur 5–6 hours before bedtime.
- *
- * We optimize around 6 hours before bedtime.
- * The exercise START time is selected so the exercise interval remains
- * entirely inside the 5–6 hour-before-bed window.
- */
 const EXERCISE_NEAREST_SLEEP_HOURS = 6;
 const EXERCISE_FARTHEST_SLEEP_HOURS = 5;
 
@@ -183,7 +188,9 @@ function pad2(n: number): string {
     .padStart(2, '0');
 }
 
-function timeStrToMinutes(t: string): number {
+function timeStrToMinutes(
+  t: string
+): number {
   const parts = t.split(':');
 
   const h = Number(parts[0]) || 0;
@@ -192,16 +199,24 @@ function timeStrToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-function minutesToTimeStr(mins: number): string {
+function minutesToTimeStr(
+  mins: number
+): string {
   const m =
-    ((Math.round(mins) % 1440) + 1440) % 1440;
+    ((Math.round(mins) % 1440) + 1440) %
+    1440;
 
-  return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+  return `${pad2(Math.floor(m / 60))}:${pad2(
+    m % 60
+  )}`;
 }
 
-function formatClock12(mins: number): string {
+function formatClock12(
+  mins: number
+): string {
   const m =
-    ((Math.round(mins) % 1440) + 1440) % 1440;
+    ((Math.round(mins) % 1440) + 1440) %
+    1440;
 
   let h = Math.floor(m / 60);
 
@@ -218,7 +233,9 @@ function formatClock12(mins: number): string {
   return `${h}:${pad2(mm)} ${ampm}`;
 }
 
-function formatDuration(mins: number): string {
+function formatDuration(
+  mins: number
+): string {
   const m = Math.round(mins);
 
   if (m < 60) {
@@ -235,8 +252,13 @@ function formatDuration(mins: number): string {
   return `${h}h ${rem}m`;
 }
 
-function formatCountdown(totalSeconds: number): string {
-  const s = Math.max(0, Math.round(totalSeconds));
+function formatCountdown(
+  totalSeconds: number
+): string {
+  const s = Math.max(
+    0,
+    Math.round(totalSeconds)
+  );
 
   const m = Math.floor(s / 60);
   const sec = s % 60;
@@ -252,11 +274,18 @@ function todayKey(d: Date): string {
   ].join('-');
 }
 
-function currentMinutes(d: Date = new Date()): number {
-  return d.getHours() * 60 + d.getMinutes();
+function currentMinutes(
+  d: Date = new Date()
+): number {
+  return (
+    d.getHours() * 60 +
+    d.getMinutes()
+  );
 }
 
-function greetingFor(nowMin: number): string {
+function greetingFor(
+  nowMin: number
+): string {
   if (nowMin < 12 * 60) {
     return 'Good morning';
   }
@@ -290,16 +319,27 @@ function mergeRanges(
   ranges: RawRange[]
 ): RawRange[] {
   const valid = ranges
-    .filter((r) => r.end - r.start >= 1)
-    .sort((a, b) => a.start - b.start);
+    .filter(
+      (r) => r.end - r.start >= 1
+    )
+    .sort(
+      (a, b) => a.start - b.start
+    );
 
   const merged: RawRange[] = [];
 
   for (const r of valid) {
-    const last = merged[merged.length - 1];
+    const last =
+      merged[merged.length - 1];
 
-    if (last && r.start <= last.end) {
-      last.end = Math.max(last.end, r.end);
+    if (
+      last &&
+      r.start <= last.end
+    ) {
+      last.end = Math.max(
+        last.end,
+        r.end
+      );
     } else {
       merged.push({
         start: r.start,
@@ -318,16 +358,31 @@ function mergeRanges(
 /**
  * Packs focus sessions.
  *
- * Important:
- * - A full 90m block is preferred.
- * - A final partial block is allowed only when a 90m block cannot fit.
- * - Exercise is handled separately.
+ * Priority:
+ * - Prefer 90m blocks.
+ * - Respect 18% recovery gap after each focus block.
+ * - Allow shorter blocks when a 90m block cannot fit.
+ * - Never create blocks shorter than 15m.
+ *
+ * This intentionally does NOT require one 90m block.
+ *
+ * Example:
+ *
+ * 2h available
+ * -> 90m + 30m
+ *
+ * Multiple separate windows can also produce:
+ *
+ * 30m + 30m + 30m
  */
 function packFocusRanges(
   ranges: RawRange[],
   targetTotal: number
 ): RawRange[] {
-  let remaining = targetTotal;
+  let remaining = Math.max(
+    0,
+    targetTotal
+  );
 
   const out: RawRange[] = [];
 
@@ -338,28 +393,33 @@ function packFocusRanges(
       cursor < range.end &&
       remaining >= MIN_BLOCK
     ) {
-      const availableHere = range.end - cursor;
+      const availableHere =
+        range.end - cursor;
 
-      if (availableHere < MIN_BLOCK) {
+      if (
+        availableHere <
+        MIN_BLOCK
+      ) {
         break;
       }
 
-      /*
-       * Always prefer 90m.
-       *
-       * If enough time exists for a 90m block and the target still needs
-       * at least 90m, take 90m.
-       *
-       * Otherwise use the remaining available amount as a final fragment.
-       */
       let duration: number;
 
+      /*
+       * Prefer 90 minutes whenever
+       * the current window and target
+       * can support it.
+       */
       if (
         remaining >= IDEAL_BLOCK &&
         availableHere >= IDEAL_BLOCK
       ) {
         duration = IDEAL_BLOCK;
       } else {
+        /*
+         * Otherwise use the available
+         * amount as a smaller final block.
+         */
         duration = Math.min(
           remaining,
           availableHere
@@ -381,7 +441,8 @@ function packFocusRanges(
         duration * GAP_RATIO
       );
 
-      cursor += duration + gap;
+      cursor +=
+        duration + gap;
     }
 
     if (remaining < MIN_BLOCK) {
@@ -421,7 +482,9 @@ function subtractRange(
     /*
      * Left fragment.
      */
-    if (blocked.start > range.start) {
+    if (
+      blocked.start > range.start
+    ) {
       result.push({
         start: range.start,
         end: Math.min(
@@ -434,7 +497,9 @@ function subtractRange(
     /*
      * Right fragment.
      */
-    if (blocked.end < range.end) {
+    if (
+      blocked.end < range.end
+    ) {
       result.push({
         start: Math.max(
           blocked.end,
@@ -446,202 +511,418 @@ function subtractRange(
   }
 
   return result.filter(
-    (r) => r.end - r.start >= MIN_BLOCK
+    (r) =>
+      r.end - r.start >= MIN_BLOCK
   );
 }
 
 /* ============================================================================
-   EXERCISE SCHEDULER
+   FOCUS BLOCK HELPERS
+============================================================================ */
+
+function rawFocusToBlocks(
+  ranges: RawRange[]
+): FocusBlock[] {
+  return ranges.map((range) => ({
+    id: genId(),
+    type: 'focus',
+    start: range.start,
+    end: range.end,
+    duration:
+      range.end - range.start,
+    status: 'upcoming',
+    startedAt: null,
+    actualMinutes: null,
+  }));
+}
+
+function focusMinutes(
+  blocks: FocusBlock[]
+): number {
+  return blocks.reduce(
+    (sum, block) =>
+      sum + block.duration,
+    0
+  );
+}
+
+/* ============================================================================
+   EXERCISE CANDIDATES
 ============================================================================ */
 
 /**
- * Exercise must:
+ * Generates possible exercise placements.
  *
- * - be continuous
- * - be 30–60 minutes
- * - preferably be 60 minutes
- * - occur 5–6 hours before bedtime
- * - be as close as possible to the 6-hour point
+ * The entire exercise interval must fit inside:
  *
- * Most importantly:
+ *     sleep - 6h
+ * to
+ *     sleep - 5h
  *
- * A 90-minute focus block always beats exercise.
+ * This gives:
  *
- * Therefore we first determine whether the day has at least one 90-minute
- * focus opportunity without exercise.
+ * 60m:
+ *     exactly the 6h -> 5h window
  *
- * If not, exercise is disabled entirely.
+ * 45m:
+ *     can move slightly inside the window
+ *
+ * 30m:
+ *     can move more freely while still remaining
+ *     inside the desired timing window.
  */
-function findExerciseBlock(
+function findExerciseCandidates(
   freeRanges: RawRange[],
   sleepMin: number
-): ExerciseBlock | null {
-  /*
-   * Candidate exercise window:
-   *
-   * [sleep - 6h, sleep - 5h]
-   *
-   * This means the exercise START should be >= sleep - 6h,
-   * and exercise END should be <= sleep - 5h.
-   */
-  const preferredStart =
-    sleepMin - EXERCISE_NEAREST_SLEEP_MINUTES;
+): {
+  start: number;
+  duration: number;
+}[] {
+  const earliestStart =
+    sleepMin -
+    EXERCISE_NEAREST_SLEEP_MINUTES;
 
   const latestEnd =
-    sleepMin - EXERCISE_FARTHEST_SLEEP_MINUTES;
+    sleepMin -
+    EXERCISE_FARTHEST_SLEEP_MINUTES;
 
-  /*
-   * We require a 30–60 minute continuous exercise block.
-   *
-   * For a 60m exercise session:
-   *
-   * start >= sleep - 6h
-   * end <= sleep - 5h
-   *
-   * Since the window is exactly 60m wide, a 60m exercise session has
-   * exactly one ideal position.
-   */
+  const durations = [
+    EXERCISE_MAX,
+    45,
+    EXERCISE_MIN,
+  ];
+
   const candidates: {
     start: number;
     duration: number;
   }[] = [];
 
-  for (const range of freeRanges) {
-    const start = Math.max(
-      range.start,
-      preferredStart
-    );
+  for (const duration of durations) {
+    for (const range of freeRanges) {
+      const minimumStart =
+        Math.max(
+          range.start,
+          earliestStart
+        );
 
-    /*
-     * First try the maximum 60m.
-     */
-    const maxDuration = Math.min(
-      EXERCISE_MAX,
-      range.end - start,
-      latestEnd - start
-    );
+      const maximumStart =
+        Math.min(
+          range.end - duration,
+          latestEnd - duration
+        );
 
-    if (maxDuration >= EXERCISE_MIN) {
+      if (
+        maximumStart <
+        minimumStart
+      ) {
+        continue;
+      }
+
       /*
-       * Prefer the largest possible continuous exercise block.
+       * Candidate closest to the
+       * 6-hour point.
        */
-      const duration =
-        maxDuration >= EXERCISE_MAX
-          ? EXERCISE_MAX
-          : Math.floor(maxDuration);
+      const targetStart =
+        earliestStart;
 
-      if (duration >= EXERCISE_MIN) {
+      const targetStartClamped =
+        Math.min(
+          maximumStart,
+          Math.max(
+            minimumStart,
+            targetStart
+          )
+        );
+
+      candidates.push({
+        start: targetStartClamped,
+        duration,
+      });
+
+      /*
+       * Also test both boundaries.
+       * This helps when free windows
+       * partially overlap the ideal
+       * exercise window.
+       */
+      if (
+        minimumStart !==
+        targetStartClamped
+      ) {
         candidates.push({
-          start,
+          start: minimumStart,
+          duration,
+        });
+      }
+
+      if (
+        maximumStart !==
+        targetStartClamped
+      ) {
+        candidates.push({
+          start: maximumStart,
           duration,
         });
       }
     }
-
-    /*
-     * Also consider a later position inside the range if the initial
-     * position cannot provide the maximum amount.
-     */
-    const latestPossibleStart = Math.min(
-      range.end - EXERCISE_MIN,
-      latestEnd - EXERCISE_MIN
-    );
-
-    if (
-      latestPossibleStart >=
-      Math.max(range.start, preferredStart)
-    ) {
-      const alternativeStart =
-        latestPossibleStart;
-
-      const alternativeDuration = Math.min(
-        EXERCISE_MAX,
-        range.end - alternativeStart,
-        latestEnd - alternativeStart
-      );
-
-      if (
-        alternativeDuration >=
-        EXERCISE_MIN
-      ) {
-        candidates.push({
-          start: alternativeStart,
-          duration: Math.floor(
-            alternativeDuration
-          ),
-        });
-      }
-    }
-  }
-
-  if (!candidates.length) {
-    return null;
   }
 
   /*
-   * Ranking:
-   *
-   * 1. Longer exercise is better.
-   * 2. Start closer to sleep - 6h is better.
+   * Remove duplicate candidates.
    */
-  candidates.sort((a, b) => {
-    if (b.duration !== a.duration) {
-      return b.duration - a.duration;
+  const unique = new Map<
+    string,
+    {
+      start: number;
+      duration: number;
     }
+  >();
 
-    return (
-      Math.abs(
-        a.start - preferredStart
-      ) -
-      Math.abs(
-        b.start - preferredStart
-      )
+  for (const candidate of candidates) {
+    unique.set(
+      `${candidate.start}-${candidate.duration}`,
+      candidate
     );
-  });
-
-  const selected = candidates[0];
-
-  return {
-    id: genId(),
-    type: 'exercise',
-    start: selected.start,
-    end: selected.start + selected.duration,
-    duration: selected.duration,
-    status: 'upcoming',
-    startedAt: null,
-    actualMinutes: null,
-  };
-}
-
-/* ============================================================================
-   CHECK FOR 90-MINUTE FOCUS OPPORTUNITY
-============================================================================ */
-
-/**
- * This is the key priority rule.
- *
- * Exercise is only allowed if at least one complete 90-minute focus block
- * remains possible after reserving the exercise slot.
- */
-function has90MinuteFocusOpportunity(
-  ranges: RawRange[],
-  targetTotal: number
-): boolean {
-  if (targetTotal < IDEAL_BLOCK) {
-    return false;
   }
 
-  const merged = mergeRanges(ranges);
-
-  return merged.some(
-    (range) =>
-      range.end - range.start >=
-      IDEAL_BLOCK
+  return Array.from(
+    unique.values()
   );
 }
 
 /* ============================================================================
-   BUILD COMPLETE SCHEDULE
+   EXERCISE + FOCUS OPTIMIZATION
+============================================================================ */
+
+/**
+ * The scheduler evaluates the complete day.
+ *
+ * Important change:
+ *
+ * We NO LONGER require a single 90m
+ * focus block before exercise can exist.
+ *
+ * Instead:
+ *
+ * 1. Exercise must be at least 30m.
+ * 2. After exercise, at least 90 TOTAL
+ *    minutes of focus must remain.
+ * 3. Deep-work minutes are optimized first.
+ * 4. If deep-work totals are equal,
+ *    longer exercise is preferred.
+ * 5. If still equal,
+ *    exercise closer to 6h before sleep wins.
+ *
+ * Therefore:
+ *
+ * 2h free:
+ *     90m focus + 30m exercise
+ *
+ * 2h 30m free:
+ *     90m focus + 60m exercise
+ *     when this preserves the best
+ *     available focus allocation.
+ *
+ * 3 × 30m focus windows:
+ *     30m + 30m + 30m focus
+ *     + 30m exercise
+ *
+ * is valid.
+ */
+function buildOptimizedSchedule(
+  availableRanges: RawRange[],
+  sleepMin: number,
+  targetTotal: number
+): TimelineBlock[] {
+  const baseFocusRanges =
+    packFocusRanges(
+      availableRanges,
+      targetTotal
+    );
+
+  const baseFocusBlocks =
+    rawFocusToBlocks(
+      baseFocusRanges
+    );
+
+  const baseFocusMinutes =
+    focusMinutes(
+      baseFocusBlocks
+    );
+
+  const candidates =
+    findExerciseCandidates(
+      availableRanges,
+      sleepMin
+    );
+
+  let best:
+    | {
+        exercise: ExerciseBlock;
+        focus: FocusBlock[];
+        focusMinutes: number;
+        exerciseMinutes: number;
+        timingDistance: number;
+      }
+    | null = null;
+
+  const targetExerciseStart =
+    sleepMin -
+    EXERCISE_NEAREST_SLEEP_MINUTES;
+
+  for (const candidate of candidates) {
+    const afterExercise =
+      subtractRange(
+        availableRanges,
+        {
+          start: candidate.start,
+          end:
+            candidate.start +
+            candidate.duration,
+        }
+      );
+
+    const focusRanges =
+      packFocusRanges(
+        afterExercise,
+        targetTotal
+      );
+
+    const focusBlocks =
+      rawFocusToBlocks(
+        focusRanges
+      );
+
+    const totalFocus =
+      focusMinutes(
+        focusBlocks
+      );
+
+    /*
+     * Hard minimum:
+     *
+     * Exercise is only worth adding
+     * when at least 90 TOTAL minutes
+     * of deep work remain.
+     *
+     * This is total deep work, NOT
+     * one continuous 90m block.
+     */
+    if (
+      totalFocus < IDEAL_BLOCK
+    ) {
+      continue;
+    }
+
+    const exercise: ExerciseBlock =
+      {
+        id: genId(),
+        type: 'exercise',
+        start: candidate.start,
+        end:
+          candidate.start +
+          candidate.duration,
+        duration:
+          candidate.duration,
+        status: 'upcoming',
+        startedAt: null,
+        actualMinutes: null,
+      };
+
+    const timingDistance =
+      Math.abs(
+        candidate.start -
+          targetExerciseStart
+      );
+
+    const current = {
+      exercise,
+      focus: focusBlocks,
+      focusMinutes: totalFocus,
+      exerciseMinutes:
+        candidate.duration,
+      timingDistance,
+    };
+
+    /*
+     * Optimization hierarchy:
+     *
+     * 1. Maximize deep-work minutes.
+     * 2. If equal, maximize exercise duration.
+     * 3. If equal, get closer to 6h before sleep.
+     */
+    if (!best) {
+      best = current;
+      continue;
+    }
+
+    if (
+      current.focusMinutes >
+      best.focusMinutes
+    ) {
+      best = current;
+      continue;
+    }
+
+    if (
+      current.focusMinutes <
+      best.focusMinutes
+    ) {
+      continue;
+    }
+
+    if (
+      current.exerciseMinutes >
+      best.exerciseMinutes
+    ) {
+      best = current;
+      continue;
+    }
+
+    if (
+      current.exerciseMinutes <
+      best.exerciseMinutes
+    ) {
+      continue;
+    }
+
+    if (
+      current.timingDistance <
+      best.timingDistance
+    ) {
+      best = current;
+    }
+  }
+
+  /*
+   * No valid exercise placement.
+   *
+   * In this case we simply return
+   * the best focus-only schedule.
+   */
+  if (!best) {
+    return baseFocusBlocks.sort(
+      (a, b) => a.start - b.start
+    );
+  }
+
+  /*
+   * If adding exercise would reduce
+   * focus below the minimum threshold,
+   * it was already rejected above.
+   *
+   * Otherwise use the optimized result.
+   */
+  return [
+    ...best.focus,
+    best.exercise,
+  ].sort(
+    (a, b) => a.start - b.start
+  );
+}
+
+/* ============================================================================
+   BUILD SCHEDULE
 ============================================================================ */
 
 function buildSchedule(
@@ -651,113 +932,41 @@ function buildSchedule(
   targetTotal: number
 ): TimelineBlock[] {
   const sleepMin =
-    timeStrToMinutes(sleepTime);
+    timeStrToMinutes(
+      sleepTime
+    );
 
-  /*
-   * Start from now and never schedule after bedtime.
-   */
   let availableRanges: RawRange[] =
     freeRanges
       .map((r) => ({
         start: Math.max(
-          timeStrToMinutes(r.start),
+          timeStrToMinutes(
+            r.start
+          ),
           nowMin
         ),
         end: Math.min(
-          timeStrToMinutes(r.end),
+          timeStrToMinutes(
+            r.end
+          ),
           sleepMin
         ),
       }))
       .filter(
         (r) =>
-          r.end - r.start >= MIN_BLOCK
+          r.end - r.start >=
+          MIN_BLOCK
       );
 
   availableRanges =
-    mergeRanges(availableRanges);
-
-  /*
-   * ---------------------------------------------------------------
-   * FIRST: determine whether exercise is allowed.
-   * ---------------------------------------------------------------
-   *
-   * Exercise must never destroy the possibility of a 90m focus block.
-   */
-  let exercise: ExerciseBlock | null = null;
-
-  const exerciseCandidate =
-    findExerciseBlock(
-      availableRanges,
-      sleepMin
+    mergeRanges(
+      availableRanges
     );
 
-  if (exerciseCandidate) {
-    const afterExercise =
-      subtractRange(
-        availableRanges,
-        {
-          start: exerciseCandidate.start,
-          end: exerciseCandidate.end,
-        }
-      );
-
-    /*
-     * Exercise is allowed if:
-     *
-     * A 90m block exists after reserving exercise.
-     */
-    if (
-      has90MinuteFocusOpportunity(
-        afterExercise,
-        targetTotal
-      )
-    ) {
-      exercise =
-        exerciseCandidate;
-
-      availableRanges =
-        afterExercise;
-    }
-  }
-
-  /*
-   * ---------------------------------------------------------------
-   * SECOND: schedule focus.
-   * ---------------------------------------------------------------
-   */
-  const focusRanges =
-    packFocusRanges(
-      availableRanges,
-      Math.max(0, targetTotal)
-    );
-
-  const focusBlocks: FocusBlock[] =
-    focusRanges.map((p) => ({
-      id: genId(),
-      type: 'focus',
-      start: p.start,
-      end: p.end,
-      duration: p.end - p.start,
-      status: 'upcoming',
-      startedAt: null,
-      actualMinutes: null,
-    }));
-
-  /*
-   * ---------------------------------------------------------------
-   * THIRD: combine timeline.
-   * ---------------------------------------------------------------
-   */
-  const all: TimelineBlock[] = [
-    ...focusBlocks,
-  ];
-
-  if (exercise) {
-    all.push(exercise);
-  }
-
-  return all.sort(
-    (a, b) => a.start - b.start
+  return buildOptimizedSchedule(
+    availableRanges,
+    sleepMin,
+    Math.max(0, targetTotal)
   );
 }
 
@@ -766,9 +975,8 @@ function buildSchedule(
 ============================================================================ */
 
 /**
- * Keeps completed/interrupted/active history.
- *
- * Rebuilds upcoming work.
+ * Keeps completed/interrupted/active history
+ * and rebuilds upcoming work.
  */
 function recalcSchedule(
   state: DayState,
@@ -776,25 +984,33 @@ function recalcSchedule(
 ): TimelineBlock[] {
   const kept =
     state.blocks.filter(
-      (b) => b.status !== 'upcoming'
+      (b) =>
+        b.status !== 'upcoming'
     );
 
   const doneMinutes =
-    kept.reduce((sum, b) => {
-      if (b.type !== 'focus') {
-        return sum;
-      }
+    kept.reduce(
+      (sum, b) => {
+        if (
+          b.type !== 'focus'
+        ) {
+          return sum;
+        }
 
-      if (b.status === 'active') {
-        return sum;
-      }
+        if (
+          b.status === 'active'
+        ) {
+          return sum;
+        }
 
-      return (
-        sum +
-        (b.actualMinutes ??
-          b.duration)
-      );
-    }, 0);
+        return (
+          sum +
+          (b.actualMinutes ??
+            b.duration)
+        );
+      },
+      0
+    );
 
   const activeBlock =
     kept.find(
@@ -813,50 +1029,106 @@ function recalcSchedule(
   const remainingTarget =
     Math.max(
       0,
-      DAILY_TARGET - doneMinutes
+      DAILY_TARGET -
+        doneMinutes
     );
 
   /*
-   * Upcoming availability is generated from the user's free windows,
-   * starting from now.
+   * If an exercise has already
+   * been completed or interrupted,
+   * do not automatically create
+   * another exercise block.
    */
+  const exerciseAlreadyUsed =
+    kept.some(
+      (b) =>
+        b.type ===
+        'exercise'
+    );
+
   const upcomingRanges =
     state.freeRanges
       .map((r) => ({
         id: r.id,
         start: minutesToTimeStr(
           Math.max(
-            timeStrToMinutes(r.start),
+            timeStrToMinutes(
+              r.start
+            ),
             startFrom
           )
         ),
         end: minutesToTimeStr(
-          timeStrToMinutes(r.end)
+          timeStrToMinutes(
+            r.end
+          )
         ),
       }))
       .filter(
         (r) =>
-          timeStrToMinutes(r.end) >
-          timeStrToMinutes(r.start)
+          timeStrToMinutes(
+            r.end
+          ) >
+          timeStrToMinutes(
+            r.start
+          )
       );
 
-  /*
-   * IMPORTANT:
-   * Exercise is only considered if it can coexist with a 90m block.
-   */
-  const fresh =
-    buildSchedule(
-      upcomingRanges,
-      state.sleepTime,
-      startFrom,
-      remainingTarget
-    );
+  let fresh: TimelineBlock[] =
+    [];
+
+  if (
+    exerciseAlreadyUsed
+  ) {
+    /*
+     * Once exercise has been
+     * completed/interrupted, only
+     * rebuild focus.
+     */
+    const focusOnlyRanges =
+      upcomingRanges
+        .map((r) => ({
+          start:
+            timeStrToMinutes(
+              r.start
+            ),
+          end:
+            timeStrToMinutes(
+              r.end
+            ),
+        }));
+
+    const merged =
+      mergeRanges(
+        focusOnlyRanges
+      );
+
+    const focus =
+      packFocusRanges(
+        merged,
+        remainingTarget
+      );
+
+    fresh =
+      rawFocusToBlocks(
+        focus
+      );
+  } else {
+    fresh =
+      buildSchedule(
+        upcomingRanges,
+        state.sleepTime,
+        startFrom,
+        remainingTarget
+      );
+  }
 
   return [
     ...kept,
     ...fresh,
   ].sort(
-    (a, b) => a.start - b.start
+    (a, b) =>
+      a.start - b.start
   );
 }
 
@@ -879,8 +1151,10 @@ function defaultFirstRange(
 
   return {
     id: genId(),
-    start: minutesToTimeStr(start),
-    end: minutesToTimeStr(end),
+    start:
+      minutesToTimeStr(start),
+    end:
+      minutesToTimeStr(end),
   };
 }
 
@@ -922,7 +1196,8 @@ const S: Record<
     color: COLORS.textPrimary,
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    WebkitFontSmoothing: 'antialiased',
+    WebkitFontSmoothing:
+      'antialiased',
     display: 'flex',
     justifyContent: 'center',
     padding:
@@ -1136,11 +1411,10 @@ function CircularTimer({
   const circumference =
     2 * Math.PI * r;
 
-  const clamped =
-    Math.min(
-      1,
-      Math.max(0, progress)
-    );
+  const clamped = Math.min(
+    1,
+    Math.max(0, progress)
+  );
 
   return (
     <svg
@@ -1458,6 +1732,25 @@ function BlockCard({
               </div>
             )}
 
+          {isExercise &&
+            isActive && (
+              <div
+                style={{
+                  fontSize: 26,
+                  fontWeight: 700,
+                  fontVariantNumeric:
+                    'tabular-nums',
+                  color:
+                    COLORS.exercise,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {formatCountdown(
+                  remainingSeconds
+                )}
+              </div>
+            )}
+
           {!isActive && (
             <div
               style={{
@@ -1481,7 +1774,7 @@ function BlockCard({
                   ? `Interrupted · ${formatDuration(
                       block.actualMinutes
                     )} logged`
-                  : 'Missed · rescheduled')}
+                  : 'Missed · not logged')}
 
               {block.status ===
                 'upcoming' &&
@@ -1706,27 +1999,65 @@ export default function Page() {
         );
 
       if (raw) {
-        const parsed: DayState =
-          JSON.parse(raw);
+        const parsed =
+          JSON.parse(raw) as Partial<DayState>;
 
         if (
           parsed.date ===
           todayKey(new Date())
         ) {
-          /*
-           * Backward safety for malformed/old states.
-           */
-          const normalized: DayState =
-            {
-              ...parsed,
+          const normalizedBlocks =
+            Array.isArray(
+              parsed.blocks
+            )
+              ? parsed.blocks.map(
+                  (block) => {
+                    /*
+                     * Backward safety:
+                     * old focus blocks are
+                     * automatically treated
+                     * as focus blocks.
+                     */
+                    if (
+                      block &&
+                      typeof block ===
+                        'object'
+                    ) {
+                      return {
+                        ...block,
+                        type:
+                          block.type ===
+                          'exercise'
+                            ? 'exercise'
+                            : 'focus',
+                      } as TimelineBlock;
+                    }
 
-              blocks:
-                Array.isArray(
-                  parsed.blocks
+                    return block;
+                  }
                 )
-                  ? parsed.blocks
-                  : [],
-            };
+              : [];
+
+          const normalized:
+            DayState = {
+            date:
+              parsed.date,
+            sleepTime:
+              parsed.sleepTime ??
+              '23:00',
+            freeRanges:
+              Array.isArray(
+                parsed.freeRanges
+              )
+                ? parsed.freeRanges
+                : [],
+            blocks:
+              normalizedBlocks,
+            onboarded:
+              Boolean(
+                parsed.onboarded
+              ),
+          };
 
           setAppState(
             normalized
@@ -1734,7 +2065,10 @@ export default function Page() {
         }
       }
     } catch {
-      // Ignore unavailable/corrupted storage.
+      /*
+       * Ignore unavailable or
+       * corrupted storage.
+       */
     }
 
     setMounted(true);
@@ -1760,7 +2094,9 @@ export default function Page() {
         )
       );
     } catch {
-      // Ignore storage errors.
+      /*
+       * Ignore storage errors.
+       */
     }
   }, [
     appState,
@@ -1858,7 +2194,8 @@ export default function Page() {
                   }
 
                   /*
-                   * Upcoming block passed its end without being started.
+                   * Upcoming block passed
+                   * its end without starting.
                    */
                   if (
                     b.status ===
@@ -1983,7 +2320,7 @@ export default function Page() {
         .filter(
           (b) =>
             b.type ===
-            'exercise' &&
+              'exercise' &&
             (b.status ===
               'completed' ||
               b.status ===
@@ -1996,6 +2333,21 @@ export default function Page() {
               0),
           0
         );
+    }, [appState]);
+
+  const scheduledExercise =
+    useMemo(() => {
+      if (!appState) {
+        return null;
+      }
+
+      return (
+        appState.blocks.find(
+          (b) =>
+            b.type ===
+            'exercise'
+        ) ?? null
+      );
     }, [appState]);
 
   const hasActive =
@@ -2026,18 +2378,17 @@ export default function Page() {
             )
         );
 
-      const base: DayState =
-        {
-          date: todayKey(
-            new Date()
-          ),
-          sleepTime:
-            draftSleep,
-          freeRanges:
-            cleanRanges,
-          blocks: [],
-          onboarded: true,
-        };
+      const base: DayState = {
+        date: todayKey(
+          new Date()
+        ),
+        sleepTime:
+          draftSleep,
+        freeRanges:
+          cleanRanges,
+        blocks: [],
+        onboarded: true,
+      };
 
       const blocks =
         recalcSchedule(
@@ -2101,14 +2452,13 @@ export default function Page() {
             return prev;
           }
 
-          const next =
-            {
-              ...prev,
-              sleepTime:
-                draftSleep,
-              freeRanges:
-                cleanRanges,
-            };
+          const next = {
+            ...prev,
+            sleepTime:
+              draftSleep,
+            freeRanges:
+              cleanRanges,
+          };
 
           const recalculated =
             recalcSchedule(
@@ -2144,7 +2494,8 @@ export default function Page() {
             }
 
             /*
-             * Do not allow two active blocks.
+             * Do not allow two active
+             * blocks.
              */
             if (
               prev.blocks.some(
@@ -2194,9 +2545,6 @@ export default function Page() {
               blocks,
             };
 
-            /*
-             * Recalculate remaining upcoming schedule.
-             */
             const recalculated =
               recalcSchedule(
                 next,
@@ -2399,7 +2747,9 @@ export default function Page() {
             STORAGE_KEY
           );
         } catch {
-          // Ignore.
+          /*
+           * Ignore.
+           */
         }
 
         setAppState(null);
@@ -2645,16 +2995,21 @@ export default function Page() {
                   you're free today
                   and the time you're
                   going to sleep.
-                  Flowline prioritizes
+                  Flowline prefers
                   90-minute focus
-                  sessions, then adds
-                  30–60 minutes of
-                  continuous exercise
-                  5–6 hours before
-                  bedtime when it can
-                  do so without
-                  sacrificing a 90-minute
-                  focus block.
+                  sessions while
+                  allowing shorter
+                  blocks when needed.
+                  It also tries to
+                  add 30–60 minutes
+                  of continuous
+                  exercise 5–6 hours
+                  before bedtime,
+                  prioritizing deep
+                  work while ensuring
+                  at least 90 total
+                  minutes of focus
+                  can remain.
                 </p>
               </div>
 
@@ -3004,6 +3359,27 @@ export default function Page() {
                     )}
                   </span>
                 </div>
+
+                {scheduledExercise && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      paddingLeft: 20,
+                      color:
+                        COLORS.textTertiary,
+                      fontSize: 11.5,
+                    }}
+                  >
+                    Planned:{' '}
+                    {formatClock12(
+                      scheduledExercise.start
+                    )}{' '}
+                    ·{' '}
+                    {formatDuration(
+                      scheduledExercise.duration
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* GOAL */}
