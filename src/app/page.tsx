@@ -36,6 +36,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -1970,6 +1971,19 @@ export default function Page() {
     () => Date.now()
   );
 
+  /*
+   * Brown-noise / brown.mp3 player.
+   * The file lives at /public/brown.mp3, so Next.js serves it
+   * from /brown.mp3.
+   *
+   * loop=true means a 1-hour file automatically repeats when a
+   * session is longer than 1 hour. We explicitly stop/reset it
+   * whenever the active session ends, is completed early, or is
+   * interrupted.
+   */
+  const brownAudioRef =
+    useRef<HTMLAudioElement | null>(null);
+
   const [
     editing,
     setEditing,
@@ -2481,6 +2495,80 @@ export default function Page() {
     ]);
 
   /* ------------------------------------------------------------------------
+     BROWN NOISE
+  ------------------------------------------------------------------------ */
+
+  const stopBrownNoise =
+    useCallback(() => {
+      const audio =
+        brownAudioRef.current;
+
+      if (!audio) {
+        return;
+      }
+
+      audio.pause();
+      audio.currentTime = 0;
+    }, []);
+
+  const startBrownNoise =
+    useCallback(() => {
+      const audio =
+        brownAudioRef.current;
+
+      if (!audio) {
+        return;
+      }
+
+      /*
+       * Always start the sound from the beginning for every new
+       * session. The 1-hour file loops automatically, so a 90-minute
+       * session plays the first hour and then the beginning again for
+       * the remaining 30 minutes.
+       */
+      audio.pause();
+      audio.currentTime = 0;
+      audio.loop = true;
+
+      const playPromise =
+        audio.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          /*
+           * Playback can be blocked by the browser. Since this call
+           * happens from the Start button, it should normally be
+           * allowed. Ignore the rejection so the timer still works.
+           */
+        });
+      }
+    }, []);
+
+  /* ------------------------------------------------------------------------
+     KEEP AUDIO SYNCHRONIZED WITH ACTIVE SESSION
+  ------------------------------------------------------------------------ */
+
+  useEffect(() => {
+    if (!appState) {
+      stopBrownNoise();
+      return;
+    }
+
+    const activeBlock =
+      appState.blocks.find(
+        (block) =>
+          block.status === 'active'
+      );
+
+    if (!activeBlock) {
+      stopBrownNoise();
+    }
+  }, [
+    appState,
+    stopBrownNoise,
+  ]);
+
+  /* ------------------------------------------------------------------------
      START
   ------------------------------------------------------------------------ */
 
@@ -2558,8 +2646,15 @@ export default function Page() {
             };
           }
         );
+
+        /*
+         * This runs directly from the Start button's user gesture,
+         * which is important because browsers may block audio that
+         * starts later from a passive effect.
+         */
+        startBrownNoise();
       },
-      []
+      [startBrownNoise]
     );
 
   /* ------------------------------------------------------------------------
@@ -2569,6 +2664,8 @@ export default function Page() {
   const handleCompleteEarly =
     useCallback(
       (id: string) => {
+        stopBrownNoise();
+
         setAppState(
           (prev) => {
             if (!prev) {
@@ -2641,7 +2738,7 @@ export default function Page() {
           }
         );
       },
-      []
+      [stopBrownNoise]
     );
 
   /* ------------------------------------------------------------------------
@@ -2651,6 +2748,8 @@ export default function Page() {
   const handleInterrupt =
     useCallback(
       (id: string) => {
+        stopBrownNoise();
+
         setAppState(
           (prev) => {
             if (!prev) {
@@ -2726,7 +2825,7 @@ export default function Page() {
           }
         );
       },
-      []
+      [stopBrownNoise]
     );
 
   /* ------------------------------------------------------------------------
@@ -2742,6 +2841,8 @@ export default function Page() {
           "Start over and clear today's plan?"
         )
       ) {
+        stopBrownNoise();
+
         try {
           window.localStorage.removeItem(
             STORAGE_KEY
@@ -2755,7 +2856,7 @@ export default function Page() {
         setAppState(null);
         setEditing(false);
       }
-    }, []);
+    }, [stopBrownNoise]);
 
   /* ------------------------------------------------------------------------
      ADD RANGE
@@ -2873,6 +2974,14 @@ export default function Page() {
 
   return (
     <div style={S.page}>
+      <audio
+        ref={brownAudioRef}
+        src="/brown.mp3"
+        preload="auto"
+        loop
+        aria-hidden="true"
+      />
+
       <style>{`
         * {
           box-sizing: border-box;
